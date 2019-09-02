@@ -78,7 +78,6 @@ class TrainTicket(object):
             return False
         password_ele.click()
         password_ele.send_keys(self._password)
-        time.sleep(90)
         return True
 
     def send_from_city(self, from_city):
@@ -126,8 +125,8 @@ class TrainTicket(object):
         time.sleep(2)
         train_date.click()
 
-        # dates_xpath = '//div[@class="cal cal-right"]/div[2]/div[@class="cell"]/div'
-        dates_xpath = '//div[@class="cal"]/div[2]/div[@class="cell"]/div'
+        dates_xpath = '//div[@class="cal cal-right"]/div[2]/div[@class="cell"]/div'
+        # dates_xpath = '//div[@class="cal"]/div[2]/div[@class="cell"]/div'
         date_ele_list = ele_utils.get_include_hide_elements_for_wait(
             self.driver,
             By.XPATH,
@@ -137,6 +136,7 @@ class TrainTicket(object):
             return False
         time.sleep(2)
         for date_ele in date_ele_list:
+            print(date_ele.text)
             if date_ele.text == day:
                 date_ele.click()
                 break
@@ -261,7 +261,8 @@ if __name__ == "__main__":
     pwd = ""
     to_city = u"湛江"
     from_city = u"广州"
-    day = "30"
-    train_num_list = ['D7497', 'D7485']
+    # day = "30"
+    day = u"国庆"
+    train_num_list = ['D7191', 'D7459', 'D7461']
     tt = TrainTicket(user, pwd)
-    tt.main(from_city, to_city, day, train_num_list)
+    print("----------main:",tt.main(from_city, to_city, day, train_num_list))

@@ -11,7 +11,7 @@ class TrainTicket(object):
     """12306抢票模块"""
 
     def __init__(self, username, password):
-        self.init_url =  'https://www.12306.cn/index/'
+        self.init_url = 'https://www.12306.cn/index/'
         self.driver = self.back_driver()
         self._username = username
         self._password = password
@@ -22,24 +22,9 @@ class TrainTicket(object):
         option.add_experimental_option('excludeSwitches', ['enable-automation'])
         driver = webdriver.Chrome(chrome_options=option)
         # driver.maximize_window()
-        driver.set_window_size(1366,788)
+        driver.set_window_size(1366, 788)
         driver.get(self.init_url)
         return driver
-
-    def open_login_page(self):
-        """在首页打开登录页面"""
-        open_login_page_btn_xpath = '//li[@id="J-header-login"]/a[1]'
-        open_login_page_btn = ele_utils.get_element_for_wait(
-            self.driver,
-            By.XPATH,
-            open_login_page_btn_xpath,
-            timeout=25
-        )
-        if not open_login_page_btn:
-            return False
-        time.sleep(3)
-        open_login_page_btn.click()
-        return True
 
     def login(self):
         """开始登录"""
@@ -198,11 +183,11 @@ class TrainTicket(object):
                 print(remainder_ticket)
                 if remainder_ticket == u'有':
                     book_list[t].click()
-                    break
+                    return True
                 if isinstance(remainder_ticket, int):
                     if int(remainder_ticket) > 0:
                         book_list[t].click()
-                        break
+                        return True
 
     def query_ticket(self):
         """进入到火车票详情查询"""
@@ -225,20 +210,46 @@ class TrainTicket(object):
             break
         return True
 
-    def main(self, tfrom_city, tto_city, tday, ttrain_num_list):
+    def choose_people(self, names):
+        """选择乘车人员"""
+        name_list_xpath = '//ul[@id="normal_passenger_id"]/li/label'
+        checkbox_list_xpath = '//ul[@id="normal_passenger_id"]/li/input'
+
+        name_list = ele_utils.get_elements_for_wait(
+            self.driver,
+            By.XPATH,
+            name_list_xpath
+        )
+        checkbox_list = ele_utils.get_elements_for_wait(
+            self.driver,
+            By.XPATH,
+            checkbox_list_xpath
+        )
+        if (not name_list) or (not checkbox_list):
+            return False
+        name_count = len(name_list)
+        if name_count != len(checkbox_list):
+            return False
+        for key in range(name_count):
+            if name_list[key].text in names:
+                checkbox_list[key].click()
+        return True
+
+    def submit_order(self):
+        """提交订单"""
+        submit_btn_xpath = '//a[@id="submitOrder_id"]'
+        submit_btn = ele_utils.get_include_hide_element_for_wait(
+            self.driver,
+            By.XPATH,
+            submit_btn_xpath
+        )
+        if not submit_btn:
+            return False
+        submit_btn.click()
+        return True
+
+    def main(self, tfrom_city, tto_city, tday, ttrain_num_list, tbuy_ticket_name):
         """入口"""
-        if not self.open_login_page():
-            return False
-        if not self.login():
-            return False
-        login_result_url = 'https://kyfw.12306.cn/otn/view/index.html'
-        while 1:
-            cur_url = self.driver.current_url
-            print(cur_url)
-            if cur_url == login_result_url:
-                self.driver.get(self.init_url)
-                break
-            continue
         self.send_from_city(tfrom_city)
         self.send_to_city(tto_city)
         self.choose_date(tday)
@@ -253,16 +264,26 @@ class TrainTicket(object):
             if not self.is_have_ticket(ttrain_num_list):
                 continue
             break
+        if not self.login():
+            return False
+        while 1:
+            if not self.choose_people(tbuy_ticket_name):
+               continue
+            # 提交订单
+            # if not self.submit_order():
+            #     continue
+            break
         return True
 
 
 if __name__ == "__main__":
     user = ""
     pwd = ""
-    to_city = u"湛江"
+    to_city = u"重庆"
     from_city = u"广州"
     # day = "30"
     day = u"国庆"
     train_num_list = ['D7191', 'D7459', 'D7461']
+    buy_ticket_names = [u"张三", u"李四"]
     tt = TrainTicket(user, pwd)
-    print("----------main:",tt.main(from_city, to_city, day, train_num_list))
+    print("----------main:", tt.main(from_city, to_city, day, train_num_list, buy_ticket_names))

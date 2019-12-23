@@ -15,6 +15,7 @@ class TrainTicket(object):
         self.driver = self.back_driver()
         self._username = username
         self._password = password
+        self.choose_name_url = 'https://kyfw.12306.cn/otn/confirmPassenger/initDc'
 
     def back_driver(self):
         """加载首页"""
@@ -97,8 +98,8 @@ class TrainTicket(object):
         to_city_ele.send_keys(Keys.ENTER)
         return True
 
-    def choose_date(self, day):
-        """只能选择右边的日期"""
+    def choose_date(self, day, is_left):
+        """日期选择"""
         train_date_xpath = '//input[@id="train_date"]'
         train_date = ele_utils.get_include_hide_element_for_wait(
             self.driver,
@@ -110,8 +111,13 @@ class TrainTicket(object):
         time.sleep(2)
         train_date.click()
 
-        dates_xpath = '//div[@class="cal cal-right"]/div[2]/div[@class="cell"]/div'
-        # dates_xpath = '//div[@class="cal"]/div[2]/div[@class="cell"]/div'
+        if is_left == True:
+            # 左边日期
+            dates_xpath = '//div[@class="cal"]/div[2]/div[@class="cell"]/div'
+        else:
+            # 右边日期
+            dates_xpath = '//div[@class="cal cal-right"]/div[2]/div[@class="cell"]/div'
+
         date_ele_list = ele_utils.get_include_hide_elements_for_wait(
             self.driver,
             By.XPATH,
@@ -121,7 +127,7 @@ class TrainTicket(object):
             return False
         time.sleep(2)
         for date_ele in date_ele_list:
-            print(date_ele.text)
+            # print(date_ele.text)
             if date_ele.text == day:
                 date_ele.click()
                 break
@@ -153,8 +159,19 @@ class TrainTicket(object):
         if not have_ticket_list:
             return False
 
+        # 无座剩余数
+        no_seat_xpath = '//tbody[@id="queryLeftTable"]/tr/td[11]'
+        no_seat_list = ele_utils.get_include_hide_elements_for_wait(
+            self.driver,
+            By.XPATH,
+            no_seat_xpath
+        )
+        if not no_seat_list:
+            return False
+
+
         # 所有预订的按钮
-        book_list_xpath = '//tbody[@id="queryLeftTable"]/tr/td[13]/a'
+        book_list_xpath = '//tbody[@id="queryLeftTable"]/tr/td[13]'
         book_list = ele_utils.get_include_hide_elements_for_wait(
             self.driver,
             By.XPATH,
@@ -178,16 +195,28 @@ class TrainTicket(object):
             return False
         for t in range(total_train):
             train_name = train_num_list[t].text
+            # print(train_name)
             if train_name in train_list:
                 remainder_ticket = have_ticket_list[t].text
-                print(remainder_ticket)
-                if remainder_ticket == u'有':
+                # print(remainder_ticket)
+                if remainder_ticket == '有':
                     book_list[t].click()
                     return True
-                if isinstance(remainder_ticket, int):
+                if remainder_ticket.isdigit():
                     if int(remainder_ticket) > 0:
                         book_list[t].click()
                         return True
+                no_seat_remainder = no_seat_list[t].text
+                if no_seat_remainder == '有':
+                    book_list[t].click()
+                    return True
+                if no_seat_remainder.isdigit():
+                    if int(no_seat_remainder) > 0:
+                        print("book_list_count:", len(book_list))
+                        print("t:", t)
+                        book_list[t].click()
+                        return True
+
 
     def query_ticket(self):
         """进入到火车票详情查询"""
@@ -200,12 +229,12 @@ class TrainTicket(object):
         )
         if not query_ticket_ele:
             return False
-        time.sleep(2)
+        # time.sleep(1)
         while 1:
             try:
                 query_ticket_ele.click()
             except:
-                time.sleep(1)
+                time.sleep(0.5)
                 continue
             break
         return True
@@ -248,11 +277,11 @@ class TrainTicket(object):
         submit_btn.click()
         return True
 
-    def main(self, tfrom_city, tto_city, tday, ttrain_num_list, tbuy_ticket_name):
+    def main(self, tfrom_city, tto_city, tday, ttrain_num_list, tbuy_ticket_name, tis_left=True):
         """入口"""
         self.send_from_city(tfrom_city)
         self.send_to_city(tto_city)
-        self.choose_date(tday)
+        self.choose_date(tday, is_left=tis_left)
         self.index_search()
 
         # 切换页面
@@ -260,13 +289,15 @@ class TrainTicket(object):
         self.driver.switch_to_window(windows[-1])
         while 1:
             self.query_ticket()
-            time.sleep(0.5)
             if not self.is_have_ticket(ttrain_num_list):
                 continue
             break
         if not self.login():
             return False
         while 1:
+            curr_url = self.driver.current_url
+            if curr_url != self.choose_name_url:
+                continue
             if not self.choose_people(tbuy_ticket_name):
                continue
             # 提交订单
@@ -276,14 +307,28 @@ class TrainTicket(object):
         return True
 
 
+def get_train_id_list():
+    with open("./train.txt") as f:
+        content = f.read()
+        content_list = content.split("\n")
+    new_content_list = list()
+    for train_id in content_list:
+        if train_id.startswith("D"):
+            new_content_list.append(train_id.strip())
+    return new_content_list
+
+
 if __name__ == "__main__":
     user = ""
     pwd = ""
-    to_city = u"重庆"
-    from_city = u"广州"
+    to_city = "南宁"
+    from_city = "广州"
     # day = "30"
-    day = u"国庆"
-    train_num_list = ['D7191', 'D7459', 'D7461']
-    buy_ticket_names = [u"张三", u"李四"]
+    day = "19"
+    c_is_left = False 
+    # train_num_list = ['D3677']
+    train_num_list = get_train_id_list()
+    buy_ticket_names = ["农耀铿"]
+    # buy_ticket_names = ["鲜青松"]
     tt = TrainTicket(user, pwd)
-    print("----------main:", tt.main(from_city, to_city, day, train_num_list, buy_ticket_names))
+    print("----------main:", tt.main(from_city, to_city, day, train_num_list, buy_ticket_names, tis_left=c_is_left))

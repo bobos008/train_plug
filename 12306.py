@@ -21,6 +21,7 @@ class TrainTicket(object):
         """加载首页"""
         option = webdriver.ChromeOptions()
         option.add_experimental_option('excludeSwitches', ['enable-automation'])
+
         driver = webdriver.Chrome(chrome_options=option)
         # driver.maximize_window()
         driver.set_window_size(1366, 788)
@@ -98,7 +99,7 @@ class TrainTicket(object):
         to_city_ele.send_keys(Keys.ENTER)
         return True
 
-    def choose_date(self, day, is_left):
+    def choose_date(self, day, is_left=True):
         """日期选择"""
         train_date_xpath = '//input[@id="train_date"]'
         train_date = ele_utils.get_include_hide_element_for_wait(
@@ -154,7 +155,8 @@ class TrainTicket(object):
         have_ticket_list = ele_utils.get_include_hide_elements_for_wait(
             self.driver,
             By.XPATH,
-            have_ticket_xpath
+            have_ticket_xpath,
+            timeout=1
         )
         if not have_ticket_list:
             return False
@@ -164,7 +166,8 @@ class TrainTicket(object):
         no_seat_list = ele_utils.get_include_hide_elements_for_wait(
             self.driver,
             By.XPATH,
-            no_seat_xpath
+            no_seat_xpath,
+            timeout=1
         )
         if not no_seat_list:
             return False
@@ -277,10 +280,33 @@ class TrainTicket(object):
         submit_btn.click()
         return True
 
-    def main(self, tfrom_city, tto_city, tday, ttrain_num_list, tbuy_ticket_name, tis_left=True):
+    def main(self, tfrom_city, tto_city, tday, tinit_day, ttrain_num_list, tbuy_ticket_name, tis_left=True):
         """入口"""
         self.send_from_city(tfrom_city)
         self.send_to_city(tto_city)
+
+        """
+            先登录
+        """
+        self.choose_date(tinit_day)
+        self.index_search()
+        init_windows = self.driver.window_handles
+        self.driver.switch_to.window(init_windows[-1])
+        while 1:
+            self.query_ticket()
+            if not self.is_have_ticket(ttrain_num_list):
+                continue
+            break
+        if not self.login():
+            return False
+        time.sleep(60)
+        self.driver.close()
+        self.driver.switch_to.window(init_windows[0])
+
+
+        """
+            重新选择日期
+        """
         self.choose_date(tday, is_left=tis_left)
         self.index_search()
 
@@ -292,8 +318,6 @@ class TrainTicket(object):
             if not self.is_have_ticket(ttrain_num_list):
                 continue
             break
-        if not self.login():
-            return False
         while 1:
             curr_url = self.driver.current_url
             if curr_url != self.choose_name_url:
@@ -321,14 +345,14 @@ def get_train_id_list():
 if __name__ == "__main__":
     user = ""
     pwd = ""
-    to_city = "南宁"
+    to_city = "重庆"
     from_city = "广州"
     # day = "30"
-    day = "19"
+    init_day = "28"
+    day = "22"
     c_is_left = False 
     # train_num_list = ['D3677']
     train_num_list = get_train_id_list()
-    buy_ticket_names = ["农耀铿"]
-    # buy_ticket_names = ["鲜青松"]
+    buy_ticket_names = ["鲜青松"]
     tt = TrainTicket(user, pwd)
-    print("----------main:", tt.main(from_city, to_city, day, train_num_list, buy_ticket_names, tis_left=c_is_left))
+    print("----------main:", tt.main(from_city, to_city, day, init_day, train_num_list, buy_ticket_names, tis_left=c_is_left))
